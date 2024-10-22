@@ -1,0 +1,19 @@
+body {
+    background-color: #ffffff;
+}
+
+.container {
+    max-width: 600px;
+}
+
+.rounded-input {
+    border-radius: 20px;
+}
+
+.rounded-button {
+    border-radius: 20px;
+}
+
+.card {
+    border-radius: 15px;
+}
