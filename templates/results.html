@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Results for {{ ip_address }}</title>
+    <style>
+        .modal-body {
+            text-align: justify;
+        }
+        .spinner-border {
+            display: none; /* Hide spinner by default */
+            margin-right: 10px; /* Add some space between spinner and button */
+        }
+        .center-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .btn-wide {
+            width: 200px; /* Set a wider button */
+        }
+        .malicious {
+            color: red;
+        }
+        .malware {
+            color: red;
+        }
+        .suspicious {
+            color: orange; /* Change to orange */
+        }
+        .clean {
+            color: green; /* Clean is now green */
+        }
+        .unrated {
+            color: blue; /* Change to blue */
+        }
+        .harmless {
+            color: green; /* Harmless is now green */
+        }
+        #analysis-result {
+            text-align: justify;
+            white-space: pre-wrap; /* Allows text wrapping */
+            line-height: 1.2; /* Reduce line height */
+        }
+        /* Style for the Go to Top button */
+        #go-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: none; /* Hide button by default */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Results for IP: {{ ip_address }}</h1>
+        
+        <div class="mb-4">
+            <form action="/perform_analysis" method="post" id="analysis-form">
+                <input type="hidden" name="ip_address" value="{{ ip_address }}">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <span class="spinner-border spinner-border-sm" role="status" id="loading-spinner" aria-hidden="true"></span>
+                        <button type="button" class="btn btn-primary btn-wide" id="run-analysis-btn">
+                            <i class="fas fa-search"></i> Run AI Analysis
+                        </button>
+                    </div>
+                    <a href="/" class="btn btn-secondary btn-wide">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Analysis Result Card -->
+        <div class="card mb-4" id="analysis-result-card" style="display: none;">
+            <div class="card-header">
+                <h5 class="card-title">Analysis Results</h5>
+            </div>
+            <div class="card-body">
+                <pre id="analysis-result"></pre>
+            </div>
+        </div>
+
+        <!-- VirusTotal Results Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between">
+                <span>VirusTotal Results</span>
+                <button class="btn btn-info btn-sm toggle-card">Show/Hide</button>
+            </div>
+            <div class="card-body">
+                <h5>Last Analysis Stats:</h5>
+                <ul>
+                    <li class="{{ 'malicious' if virustotal_results['data']['attributes']['last_analysis_stats']['malicious'] > 0 else '' }}">
+                        <i class="fas fa-exclamation-triangle"></i> Malicious: <span class="malicious">{{ virustotal_results['data']['attributes']['last_analysis_stats']['malicious'] }}</span>
+                    </li>
+                    <li class="{{ 'suspicious' if virustotal_results['data']['attributes']['last_analysis_stats']['suspicious'] > 0 else '' }}">
+                        <i class="fas fa-question-circle"></i> Suspicious: <span class="suspicious">{{ virustotal_results['data']['attributes']['last_analysis_stats']['suspicious'] }}</span>
+                    </li>
+                    <li class="{{ 'clean' if virustotal_results['data']['attributes']['last_analysis_stats']['undetected'] == 0 else '' }}">
+                        <i class="fas fa-check-circle"></i> Clean: <span class="clean">{{ virustotal_results['data']['attributes']['last_analysis_stats']['undetected'] }}</span>
+                    </li>
+                    <li class="{{ 'harmless' if virustotal_results['data']['attributes']['last_analysis_stats']['harmless'] > 0 else '' }}">
+                        <i class="fas fa-check-circle"></i> Harmless: <span class="harmless">{{ virustotal_results['data']['attributes']['last_analysis_stats']['harmless'] }}</span>
+                    </li>
+                </ul>
+                <h5>Last Analysis Results:</h5>
+                <div>
+                    {% for engine, result in virustotal_results['data']['attributes']['last_analysis_results'].items() %}
+                        <p>
+                            <strong>{{ engine }}:</strong> 
+                            {% if result['result'] == "clean" %}
+                                <span class="clean">{{ result['result'] }}</span>
+                            {% elif result['result'] == "unrated" %}
+                                <span class="unrated">{{ result['result'] }}</span>
+                            {% elif result['result'] == "malicious" %}
+                                <span class="malicious">{{ result['result'] }}</span>
+                            {% elif result['result'] == "malware" %}
+                                <span class="malware">{{ result['result'] }}</span>
+                            {% else %}
+                                {{ result['result'] }}
+                            {% endif %} 
+                            ({{ result['method'] }})
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- AbuseIPDB Results Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between">
+                <span>AbuseIPDB Results</span>
+                <button class="btn btn-info btn-sm toggle-card">Show/Hide</button>
+            </div>
+            <div class="card-body">
+                <h5>Abuse Confidence Score: {{ abuseipdb_results['data']['abuseConfidenceScore'] }}</h5>
+                <h5>Number of Reports: {{ abuseipdb_results['data']['totalReports'] }}</h5>
+                <h5>Last Reported: {{ abuseipdb_results['data']['lastReportedAt'] }}</h5>
+                <h5>Recent Reports:</h5>
+                <ul>
+                    {% for report in abuseipdb_results['data']['reports'] %}
+                        <li>Reported by: {{ report['reporter'] }} on {{ report['date'] }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- WHOIS Information Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between">
+                <span>WHOIS Information</span>
+                <button class="btn btn-info btn-sm toggle-card">Show/Hide</button>
+            </div>
+            <div class="card-body">
+                <h5>WHOIS Information:</h5>
+                <pre>{{ virustotal_results['data']['attributes']['whois'] }}</pre>
+                <h5>Country: {{ virustotal_results['data']['attributes']['country'] }}</h5>
+                <h5>Network: {{ virustotal_results['data']['attributes']['network'] }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Go to Top Button -->
+    <button id="go-to-top" title="Go to Top"><i class="fas fa-chevron-up"></i></button>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#run-analysis-btn').on('click', function() {
+                // Disable button and change its color to grey
+                $(this).prop('disabled', true);
+                $(this).css('background-color', 'grey');
+                
+                $('#loading-spinner').show(); // Show spinner
+                const ipAddress = $('input[name="ip_address"]').val();
+    
+                $.ajax({
+                    url: '/perform_analysis',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ip_address: ipAddress }),
+                    success: function(data) {
+                        $('#loading-spinner').hide(); // Hide spinner
+                        $('#analysis-result').text(data.analysis).show(); // Show analysis result
+                        $('#analysis-result-card').show(); // Show analysis result card
+    
+                        // Re-enable button and restore original color
+                        $('#run-analysis-btn').prop('disabled', false);
+                        $('#run-analysis-btn').css('background-color', ''); // Reset background color
+                    },
+                    error: function(xhr) {
+                        $('#loading-spinner').hide(); // Hide spinner
+                        alert('Error performing analysis: ' + xhr.responseText);
+                        
+                        // Re-enable button and restore original color
+                        $('#run-analysis-btn').prop('disabled', false);
+                        $('#run-analysis-btn').css('background-color', ''); // Reset background color
+                    }
+                });
+            });
+    
+            // Show/Hide functionality for cards
+            $('.toggle-card').on('click', function() {
+                $(this).closest('.card').find('.card-body').toggle();
+            });
+    
+            // Show or hide the Go to Top button based on scroll position
+            $(window).scroll(function() {
+                if ($(this).scrollTop() > 100) {
+                    $('#go-to-top').fadeIn();
+                } else {
+                    $('#go-to-top').fadeOut();
+                }
+            });
+    
+            // Smooth scroll to top when the button is clicked
+            $('#go-to-top').click(function() {
+                $('html, body').animate({ scrollTop: 0 }, 600);
+            });
+        });
+    </script>
+    
+</body>
+</html>
